@@ -101,8 +101,8 @@ static inline int
 modify_user_hw_breakpoint(struct perf_event *bp,
 			  struct perf_event_attr *attr)	{ return -ENOSYS; }
 static inline int
-__modify_user_hw_breakpoint(struct perf_event *bp,
-			    struct perf_event_attr *attr) { return -ENOSYS; }
+modify_user_hw_breakpoint_check(struct perf_event *bp, struct perf_event_attr *attr,
+				bool check)	{ return -ENOSYS; }
 
 static inline struct perf_event *
 register_wide_hw_breakpoint_cpu(struct perf_event_attr *attr,
