@@ -487,7 +487,7 @@ modify_user_hw_breakpoint_check(struct perf_event *bp, struct perf_event_attr *a
 	bp->attr.disabled = attr->disabled;
 	return 0;
 }
-
+#if 0
 /**
  * modify_user_hw_breakpoint - modify a user-space hardware breakpoint
  * @bp: the breakpoint structure to modify
@@ -521,6 +521,37 @@ int modify_user_hw_breakpoint(struct perf_event *bp, struct perf_event_attr *att
 		perf_event_enable(bp);
 	return 0;
 }
+#else
+//Milind
+int modify_user_hw_breakpoint(struct perf_event *bp, struct perf_event_attr *attr)
+{
+        int err;
+
+        /*
+         * modify_user_hw_breakpoint can be invoked with IRQs disabled and hence it
+         * will not be possible to raise IPIs that invoke __perf_event_disable.
+         * So call the function directly after making sure we are targeting the
+         * current task.
+         */
+        if (irqs_disabled() && bp->ctx && bp->ctx->task == current)
+                perf_event_disable_local(bp);
+        else
+                perf_event_disable(bp);
+
+        err = modify_user_hw_breakpoint_check(bp, attr, false);
+
+        if (err) {
+                if (!bp->attr.disabled)
+                        perf_event_enable(bp);
+
+                return err;
+        }
+
+        if (!attr->disabled)
+                perf_event_enable(bp);
+        return 0;
+}
+#endif
 EXPORT_SYMBOL_GPL(modify_user_hw_breakpoint);
 
 /**
