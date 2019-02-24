@@ -5,6 +5,24 @@
 #include <linux/if_vlan.h>
 #include <uapi/linux/virtio_net.h>
 
+static inline int virtio_net_hdr_set_proto(struct sk_buff *skb,
+					   const struct virtio_net_hdr *hdr)
+{
+	switch (hdr->gso_type & ~VIRTIO_NET_HDR_GSO_ECN) {
+	case VIRTIO_NET_HDR_GSO_TCPV4:
+	case VIRTIO_NET_HDR_GSO_UDP:
+		skb->protocol = cpu_to_be16(ETH_P_IP);
+		break;
+	case VIRTIO_NET_HDR_GSO_TCPV6:
+		skb->protocol = cpu_to_be16(ETH_P_IPV6);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static inline int virtio_net_hdr_to_skb(struct sk_buff *skb,
 					const struct virtio_net_hdr *hdr,
 					bool little_endian)
@@ -39,6 +57,15 @@ static inline int virtio_net_hdr_to_skb(struct sk_buff *skb,
 
 		if (!skb_partial_csum_set(skb, start, off))
 			return -EINVAL;
+	} else {
+		/* gso packets without NEEDS_CSUM do not set transport_offset.
+		 * probe and drop if does not match one of the above types.
+		 */
+		if (gso_type) {
+			skb_probe_transport_header(skb, -1);
+			if (!skb_transport_header_was_set(skb))
+				return -EINVAL;
+		}
 	}
 
 	if (hdr->gso_type != VIRTIO_NET_HDR_GSO_NONE) {
